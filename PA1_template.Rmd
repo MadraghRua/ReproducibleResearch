@@ -1,0 +1,123 @@
+---
+title: "PA1_template"
+author: "MadraghRua"
+date: "August 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Code to read in data set
+
+First read in the file. Create a data frame to store it in:
+
+```{r readFile, echo=TRUE}
+if (!file.exists('activity.csv')) {
+  unzip('activity.zip')
+}
+activityData <- read.csv('activity.csv')
+```
+
+## Calculate and Plot Steps by Day
+Process the data, ignoring missing data. Plot a Histogram of the results.
+```{r plotSteps, echo=TRUE}
+stepsByDay <- tapply(activityData$steps, activityData$date, sum, na.rm=TRUE)
+
+#draw histogram  
+
+hist(stepsByDay, 
+     xlab = "Total Steps per Day", 
+     ylab = "Binned Distribution of Steps Taken",
+     main = "Distribution of Daily Total Steps, filtered for missing data",
+     breaks = 20, 
+     density = 1000, 
+     col = "blue")
+
+```
+
+##Calculate Mean and Median Steps 
+Use the processed data set to calculate the mean and medians of the steps
+
+```{r calculateSteps, echo=TRUE}
+stepsByDayMean <- mean(stepsByDay)
+stepsByDayMedian <- median(stepsByDay)
+stepsByDayMean
+stepsByDayMedian
+```
+##Calculate Time Plot for Data Set
+Prepare the data for a time series plot. Then draw it.
+
+```{r calculateTimePlot, echo=TRUE}
+intervalAverages <- tapply(activityData$steps, activityData$interval, mean, na.rm=TRUE, simplify = TRUE)
+dictIntervalAverages <- data.frame(interval = as.integer(names(intervalAverages)), avg = intervalAverages)
+
+with(dictIntervalAverages,
+     plot(interval,
+          avg,
+          type = 'l',
+          xlab = '5 Minute Intervals',
+          ylab = 'Average Steps in Interval',
+          main = 'Average Steps for Three Days Plotted Across Intervals',
+          sub = 'Data filtered to ignore missing data'
+          )
+     )
+
+
+```
+##Find maximal step interval
+Use the filtered data structure to find the interval with the greatest number of steps
+```{r maximalStepInterval, echo=TRUE}
+maximumSteps <- max(dictIntervalAverages$avg)
+dictIntervalAverages[dictIntervalAverages$avg == maximumSteps, ]
+
+```
+
+##Dealing with missing data
+Go through the data frame identifying intervals missing data. Look at the equivalent data from the averaged data set created in Step 2. Use the average values to replace the missing data.
+```{r handleMissingData, echo=TRUE}
+numMissValues <- sum(is.na(activityData$steps))
+
+dictFillIn <- activityData
+keys <- is.na(dictFillIn$steps)
+averageIntervalVal <- tapply(activityData$steps,activityData$interval,mean, na.rm = TRUE, simplify = TRUE)
+dictFillIn$steps[keys] <- averageIntervalVal[as.character(dictIntervalAverages$interval[keys])]
+```
+##Plot data with missing data replaced by average values
+Create a new data frame to contain the munged data set. Use this to plot a new histogram.
+```{r correctedPlot, echo=TRUE}
+correctedActivityData <- tapply(dictFillIn$steps, dictFillIn$date, sum, na.rm = TRUE, simplify = TRUE)
+
+hist(correctedActivityData, 
+     col = "blue", 
+     breaks = 20, 
+     xlab = "Total Steps per Day", 
+     ylab = "Binned Distribution of Steps Taken", 
+     main = "Distribution of Daily Total Steps, corrected for missing data", 
+     sub = "Data corrected to replace missing data with averages")
+
+mean(correctedActivityData)
+median(correctedActivityData)
+
+```
+The values in the correccted data are marginally different from the filtered data, which is not unreasonable.
+
+##Panel Plot to compare weekends and weekdays
+Filter the data to find weekends and weekdays. Add a new column to the data frame to store this data. Then use the data to plot a two panel view of the data with Weekends compared to weekdays.
+```{r panelPlot, echo=TRUE}
+library(lattice)
+
+dictFillIn$dayClass <- ifelse(as.POSIXlt(dictFillIn$date)$wday %in% c(0,6), 'weekend', 'weekday')
+
+dayClassDiff <- aggregate(steps ~ interval + dayClass, data = dictFillIn, mean)
+
+xyplot(steps ~ interval | dayClass, 
+       data = dayClassDiff, 
+       layout = c(1,2), 
+       xlab = "Intervals", 
+       ylab = "Numbers of Steps", 
+       type = 'l', 
+       lty = 1)
+
+```
